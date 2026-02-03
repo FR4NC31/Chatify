@@ -1,11 +1,11 @@
 import type { AuthRequest } from "../middlewares/auth";
-import type { NextFunction, Response } from "express";
+import type { Request, NextFunction, Response } from "express";
 import { User } from "../models/user";
-import { clerkClient, getAuth, requireAuth } from "@clerk/express";
+import { clerkClient, getAuth } from "@clerk/express";
 
-export async function getMe(req: AuthRequest, res: Response, next: NextFunction) {
+export async function getMe(req: Request, res: Response, next: NextFunction) {
     try {
-        const userId = req.userId
+        const userId = (req as AuthRequest).userId
 
         const user = await User.findById(userId)
 
@@ -13,9 +13,7 @@ export async function getMe(req: AuthRequest, res: Response, next: NextFunction)
 
         res.status(200).json(user)
     } catch (error) {
-        res.status(500){
-            next(error)
-        }
+        next(error)
     }
 }
 
@@ -27,7 +25,6 @@ export async function authCallback(req: Request, res: Response, next: NextFuncti
             res.status(401).json({ message: "Unauthorized" })
             return
         }
-
 
         let user = await User.findOne({ clerkId })
 
@@ -46,3 +43,4 @@ export async function authCallback(req: Request, res: Response, next: NextFuncti
     } catch (error) {
         next(error)
     }
+}
