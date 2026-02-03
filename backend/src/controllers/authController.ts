@@ -14,29 +14,29 @@ export async function getMe(req: AuthRequest, res: Response, next: NextFunction)
         res.status(200).json(user)
     } catch (error) {
         res.status(500){
-            next()
+            next(error)
         }
     }
 }
 
 export async function authCallback(req: Request, res: Response, next: NextFunction) {
     try {
-        const {userId: clerkId} = getAuth(req)
+        const { userId: clerkId } = getAuth(req)
 
-        if(!clerkId) {
-            res.status(401).json({message: "Unauthorized"})
+        if (!clerkId) {
+            res.status(401).json({ message: "Unauthorized" })
             return
         }
-        
 
-        let user = await User.findOne({clerkId})
 
-        if(!user){
+        let user = await User.findOne({ clerkId })
+
+        if (!user) {
             const clerkUser = await clerkClient.users.getUser(clerkId)
 
             user = await User.create({
                 clerkId,
-                name: clerkUser.firstName ? `${clerkUser.firstName} ${clerkUser.lastName || ""}`.trim(): clerkUser.emailAddresses[0]?.emailAddress.split("@")[0] || "User", 
+                name: clerkUser.firstName ? `${clerkUser.firstName} ${clerkUser.lastName || ""}`.trim() : clerkUser.emailAddresses[0]?.emailAddress.split("@")[0] || "User",
                 email: clerkUser.emailAddresses[0]?.emailAddress,
                 avatar: clerkUser.imageUrl
             })
@@ -44,7 +44,5 @@ export async function authCallback(req: Request, res: Response, next: NextFuncti
 
         res.json(user)
     } catch (error) {
-        res.status(500).json({message: "Internal server error"})
         next(error)
     }
-}

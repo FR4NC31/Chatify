@@ -19,6 +19,7 @@ export const protectRoute = [
             next()
         } catch (error) {
             console.log("Error in protectRoute middleware", error)
+            next(error)
         }
     }
 ]
