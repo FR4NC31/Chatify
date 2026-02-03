@@ -1,4 +1,6 @@
 import express from 'express'
+import { clerkMiddleware } from "@clerk/express"
+import { errorHandler } from './middlewares/errorHandler'
 
 //Routes
 import authRoutes from "./routes/authRoute"
@@ -10,9 +12,13 @@ const app = express()
 
 app.use(express.json())
 
+app.use(clerkMiddleware())
+
 app.get("/health", (req, res) => {
     res.json({ status: "ok", message: "Server is running" })
 })
+
+app.use(errorHandler)
 
 app.use("/api/auth", authRoutes)
 app.use("/api/chats", chatRoutes)
