@@ -6,7 +6,7 @@ export async function getChats(req: AuthRequest, res: Response, next: NextFuncti
    try {
      const userId = req.userId
 
-    const chats = await Chat.find ({ participants: userId })
+    const chats = await Chat.find({ participants: userId })
     .populate(
         "participants",
         "name email avatar"
@@ -37,19 +37,25 @@ export async function getOrCreateChat(req: AuthRequest, res: Response, next: Nex
         const userId = req.userId
         const { participantId } = req.params
 
-        let chat = await Chat.findOne({
-            participants: {
-                $all: [userId, participantId]
-            }
-        })
+        // Validate participantId
+        if (!participantId || participantId === userId) {
+            res.status(400).json({ message: "Invalid participant" })
+            return
+        }
+
+        // Use findOneAndUpdate with upsert to atomically find or create
+        const sortedParticipants = [userId, participantId].sort()
+        let chat = await Chat.findOneAndUpdate(
+            {
+                participants: { $all: sortedParticipants }
+            },
+            {
+                $setOnInsert: { participants: [userId, participantId] }
+            },
+            { upsert: true, new: true }
+        )
         .populate("participants", "name email avatar")
         .populate("lastMessage")
-
-        if(!chat) {
-            const NewChat = new Chat ({ participants: [userId, participantId] })
-            await NewChat.save()
-            chat = await NewChat.populate("participants", "name email avatar")
-        }
 
         const otherParticipant = chat.participants.find((p: any) => p._id.toString() !== userId)
         res.json({
