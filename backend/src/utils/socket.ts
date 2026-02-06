@@ -10,7 +10,7 @@ interface SocketWithUserId extends Socket {
 }
 
 //store online users in memory: userId -> socketId
-export const onlineUsers: Map<string, string> = new Map()
+export const onlineUsers: Map<string, Set<string>> = new Map()
 
 export const initializeSocket = (httpServer: HttpServer) => {
     const allowedOrigins = [
@@ -46,13 +46,23 @@ export const initializeSocket = (httpServer: HttpServer) => {
 
         socket.emit("online-users", { userIds: Array.from(onlineUsers.keys()) })
 
-        onlineUsers.set(userId, socket.id)
+        const sockets = onlineUsers.get(userId) ?? new Set<string>()
+        const wasOffline = sockets.size === 0
+        sockets.add(socket.id)
+        onlineUsers.set(userId, sockets)
 
-        socket.broadcast.emit("user-online", { userId })
+        if (wasOffline) {
+            socket.broadcast.emit("user-online", { userId })
+        }
 
         socket.join(`user:${userId}`)
 
-        socket.on("join-chat", (chatId: string) => {
+        socket.on("join-chat", async (chatId: string) => {
+            const chat = await Chat.findOne({ _id: chatId, participants: userId }).select("_id")
+            if (!chat) {
+                socket.emit("socket-error", { message: "Not authorized to join this chat" })
+                return
+            }
             socket.join(`chat:${chatId}`)
         })
 
@@ -70,7 +80,7 @@ export const initializeSocket = (httpServer: HttpServer) => {
                 })
 
                 if (!chat) {
-                    socket.emit("socket error", { message: "Chat not found" })
+                    socket.emit("socket-error", { message: "Chat not found" })
                     return
                 }
 
@@ -101,10 +111,14 @@ export const initializeSocket = (httpServer: HttpServer) => {
         })
 
         socket.on("disconnect", () => {
-            onlineUsers.delete(userId)
-
-            socket.broadcast.emit("user-offline", { userId })
-        })
+            const sockets = onlineUsers.get(userId)
+            if (!sockets) return
+            sockets.delete(socket.id)
+            if (sockets.size === 0) {
+                onlineUsers.delete(userId)
+                socket.broadcast.emit("user-offline", { userId })
+            }
+        })  
     })
     return io
 }
